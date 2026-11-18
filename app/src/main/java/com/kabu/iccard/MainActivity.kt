@@ -154,6 +154,10 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
             f.timeout = 1000
             val dump = Felica(f).dumpAll(tag.id.hex(""))
             f.close()
+            if (Asaca.history(dump) == null) {
+                runOnUiThread { status.text = "途中でカードが離れました。2〜3秒くっつけたままにしてください" }
+                return
+            }
             val prev = loadDumps().lastOrNull { it.cardId == dump.cardId }
             saveDump(dump)
             lastDump = dump
@@ -170,15 +174,25 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
 
     private fun render(d: CardDump, prev: CardDump?) {
         val locs = loadLocs()
-        balanceView.text = when {
-            locs.isEmpty() -> "¥ ----"
-            locs.size == 1 -> locs[0].read(d)?.let { "¥ %,d".format(it) } ?: "¥ ????"
-            else -> "候補" + locs.size + "個"
-        }
-        balanceView.setTextColor(if (locs.size == 1) Color.rgb(0, 100, 200) else Color.GRAY)
-
+        val hist = Asaca.history(d)
         val sb = StringBuilder()
-        if (locs.size > 1) {
+        if (hist != null) {
+            balanceView.text = "¥ %,d".format(hist[0].balance)
+            balanceView.setTextColor(Color.rgb(0, 100, 200))
+            sb.append("■ 利用履歴（新しい順）\n")
+            hist.forEach { e ->
+                sb.append("%-11s %-9s %8s  残%,6d\n".format(e.time, e.label, e.amount, e.balance))
+            }
+            sb.append("\n")
+        } else {
+            balanceView.text = when {
+                locs.isEmpty() -> "¥ ----"
+                locs.size == 1 -> locs[0].read(d)?.let { "¥ %,d".format(it) } ?: "¥ ????"
+                else -> "候補" + locs.size + "個"
+            }
+            balanceView.setTextColor(if (locs.size == 1) Color.rgb(0, 100, 200) else Color.GRAY)
+        }
+        if (hist == null && locs.size > 1) {
             sb.append("■ 残高の候補（チャージや乗車の後に再度「今の残高を教える」で絞り込めます）\n")
             locs.forEach { sb.append("  ${it.label()} = ${it.read(d)}\n") }
             sb.append("\n")
