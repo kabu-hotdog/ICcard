@@ -112,7 +112,7 @@ class Felica(private val nfc: NfcF) {
 
     fun dumpAll(cardId: String): CardDump {
         val firstIdm = polling(0xFFFF) ?: nfc.tag.id
-        var systemCodes = requestSystemCodes(firstIdm)
+        var systemCodes = requestSystemCodes(firstIdm).ifEmpty { requestSystemCodes(firstIdm) }
         if (systemCodes.isEmpty()) {
             val sc = nfc.systemCode
             systemCodes = listOf(((sc[0].toInt() and 0xFF) shl 8) or (sc[1].toInt() and 0xFF))

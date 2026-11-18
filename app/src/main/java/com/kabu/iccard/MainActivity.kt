@@ -100,12 +100,16 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
             text = "ダンプを共有"
             setOnClickListener { share() }
         }
+        val btnRescan = Button(this).apply {
+            text = "読み直す"
+            setOnClickListener { restartReader() }
+        }
         val btnReset = Button(this).apply {
             text = "リセット"
             setOnClickListener { confirmReset() }
         }
         val lp = LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f)
-        buttons.addView(btnBalance, lp)
+        buttons.addView(btnRescan, lp)
         buttons.addView(btnShare, lp)
         buttons.addView(btnReset, lp)
 
@@ -138,6 +142,27 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
         )
     }
 
+    /** リーダーを一度止めて再開する。カードを置いたままでも読み直せる */
+    private fun restartReader() {
+        nfc?.disableReaderMode(this)
+        status.text = "カードをかざしてください（置いたままでもOK）"
+        nfc?.enableReaderMode(
+            this, this,
+            NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
+            null
+        )
+    }
+
+    private fun buzz() {
+        try {
+            val v = getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+            if (android.os.Build.VERSION.SDK_INT >= 26)
+                v.vibrate(android.os.VibrationEffect.createOneShot(80, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+            else @Suppress("DEPRECATION") v.vibrate(80)
+        } catch (e: Exception) {
+        }
+    }
+
     override fun onPause() {
         super.onPause()
         nfc?.disableReaderMode(this)
@@ -162,7 +187,8 @@ class MainActivity : Activity(), NfcAdapter.ReaderCallback {
             saveDump(dump)
             lastDump = dump
             runOnUiThread {
-                status.text = "読み取り完了 " + fmtTime(dump.time)
+                buzz()
+                status.text = "読み取り完了 " + fmtTime(dump.time) + "（もう一度読むときはカードを離してかざし直す）"
                 render(dump, prev)
             }
         } catch (e: Exception) {
